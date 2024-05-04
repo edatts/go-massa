@@ -10,5 +10,6 @@ package massa
 //
 //	- Figure out which license to release under.
 //
-//	- Write some usage examples.
+//	- Implement stateful wallet persistence.
+//		- Add nano timestamp to keystore file names.
 //

@@ -70,7 +70,7 @@ type walletOptFn func(*walletOpts)
 // absolute path.
 func WithCustomWalletHome(path string) walletOptFn {
 	return func(opts *walletOpts) {
-		if filepath.IsAbs(path) {
+		if !filepath.IsAbs(path) {
 			log.Fatal("custom home must be absolute path")
 		}
 		opts.home = path
@@ -169,32 +169,32 @@ func (w *Wallet) GetWalletHome() string {
 }
 
 type accountManager struct {
-	keystorePath string
-	accounts     map[string]MassaAccount
-	mu           sync.RWMutex
+	keystoreDir string
+	accounts    map[string]MassaAccount
+	mu          sync.RWMutex
 }
 
 func newAccountManager(walletHome string) *accountManager {
 	return &accountManager{
-		keystorePath: filepath.Join(walletHome, "keys"),
-		accounts:     map[string]MassaAccount{},
-		mu:           sync.RWMutex{},
+		keystoreDir: filepath.Join(walletHome, "keys"),
+		accounts:    map[string]MassaAccount{},
+		mu:          sync.RWMutex{},
 	}
 }
 
 func (a *accountManager) init() error {
-	if exists, err := dirExists(a.keystorePath); err != nil {
+	if exists, err := dirExists(a.keystoreDir); err != nil {
 		return err
 	} else if exists {
-		log.Printf("Found keystore dir at '%s'", a.keystorePath)
+		log.Printf("Found keystore dir at '%s'", a.keystoreDir)
 		return nil
 	}
 
-	if err := os.MkdirAll(a.keystorePath, os.ModePerm); err != nil {
+	if err := os.MkdirAll(a.keystoreDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed creating keystore dir: %w", err)
 	}
 
-	log.Printf("Created keystore dir at '%s'", a.keystorePath)
+	log.Printf("Created keystore dir at '%s'", a.keystoreDir)
 
 	return nil
 }
@@ -241,7 +241,7 @@ func (a *accountManager) importAccount(privEncoded string, password string) (add
 }
 
 func (a *accountManager) loadAccount(addr string, password string) error {
-	acc, err := getAccountFromKeystore(addr, password, a.keystorePath)
+	acc, err := getAccountFromKeystore(addr, password, a.keystoreDir)
 	if err != nil {
 		return fmt.Errorf("failed getting account from keystore: %w", err)
 	}
@@ -305,5 +305,5 @@ func accountFromPriv(privEncoded string) (MassaAccount, error) {
 }
 
 func (a *accountManager) persistAccount(acc MassaAccount, password string) error {
-	return persistAccount(acc, password, a.keystorePath)
+	return persistAccount(acc, password, a.keystoreDir)
 }

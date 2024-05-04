@@ -3,3 +3,11 @@ test:
 
 generate-protos:
 	bash generate-protos.sh
+
+run-examples:
+	go run examples/generate-wallet/main.go
+	go run examples/send-coins/main.go
+
+cleanup-storage:
+	rm ./testStorage/keys/*
+	rm ./exampleStorage/keys/*

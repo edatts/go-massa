@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/edatts/go-massa"
 )
@@ -13,7 +15,7 @@ func main() {
 		senderSecretKey = "S11JcqZoz6XXbRjN2nrw2CsuKNfcfqwX6Po2EsiwG6jHnhuVLzo"
 
 		// Empty password will prompt for user input.
-		senderPassword = ""
+		senderPassword = "password"
 
 		// Amount must be in nanoMAS
 		amount uint64 = 1_000_000_000 // 1 MAS
@@ -27,7 +29,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	wallet := massa.NewWallet()
+	// Get custom home
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	customHome := filepath.Join(wd, "exampleStorage")
+
+	wallet := massa.NewWallet(massa.WithCustomWalletHome(customHome))
 	if err := wallet.Init(); err != nil {
 		log.Fatal(err)
 	}

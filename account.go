@@ -29,7 +29,7 @@ func (m *MassaAccount) Addr() string {
 }
 
 // Generates a Massa Account and saves the corresponding keystore
-// file to defaultKeystorePath(). The user will be prompted
+// file to defaultKeystoreDir(). The user will be prompted
 // for a password.
 //
 // Returns the generated account.
@@ -41,7 +41,7 @@ func GenerateAccount() (MassaAccount, error) {
 
 	acc := newMassaAccount(priv, pub)
 
-	if err := persistAccount(acc, "", defaultKeystorePath()); err != nil {
+	if err := persistAccount(acc, "", defaultKeystoreDir()); err != nil {
 		return MassaAccount{}, fmt.Errorf("failed saving account to file: %w", err)
 	}
 
@@ -49,7 +49,7 @@ func GenerateAccount() (MassaAccount, error) {
 }
 
 // Imports the account into the wallet at the default keystore
-// location (see defaultKeystorePath()). The user will be prompted
+// location (see defaultKeystoreDir()). The user will be prompted
 // for a password.
 //
 // Returns the imported account.
@@ -60,7 +60,7 @@ func ImportAccount(privEncoded string) (MassaAccount, error) {
 		return MassaAccount{}, fmt.Errorf("failed deriving account from private key: %w", err)
 	}
 
-	if err := persistAccount(acc, "", defaultKeystorePath()); err != nil {
+	if err := persistAccount(acc, "", defaultKeystoreDir()); err != nil {
 		return MassaAccount{}, fmt.Errorf("failed saving account to file: %s", err)
 	}
 

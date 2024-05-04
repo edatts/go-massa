@@ -28,6 +28,8 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 - Read datastore keys and values.
 - Get native balances.
 - Deploy WASM bytecode.
+- Custom configuration improvements.
+- Unify all functionality under a "`MassaClient`"
 
 ### Future Work ###
 - Investigate go-massa as a node client.

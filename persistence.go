@@ -67,7 +67,7 @@ import (
 // 		 storage of keys on disk.
 //
 
-func defaultKeystorePath() string {
+func defaultKeystoreDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("could not get user home path: %s", err)
@@ -109,11 +109,7 @@ type KdfParams struct {
 	P      int    `json:"p"`
 }
 
-// TODO: Check if file already exists on disk and return
-// to avoid over-writing existing keys (file names are
-// unique so shouldn't lead to key loss in the event of
-// overwriting but it is still good to avoid)...
-func persistAccount(acc MassaAccount, password string, keystorePath string) error {
+func persistAccount(acc MassaAccount, password string, keystoreDir string) error {
 
 	// Create keystore file
 	kf, err := createKeystoreFile(acc, password)
@@ -127,8 +123,18 @@ func persistAccount(acc MassaAccount, password string, keystorePath string) erro
 		return fmt.Errorf("failed marshalling json: %w", err)
 	}
 
+	// Check if file exists
+	fileName := fmt.Sprintf("keystore-%s.json", acc.Addr())
+	filePath := filepath.Join(keystoreDir, fileName)
+	if exists, err := fileExists(filePath); err != nil {
+		log.Printf("cloud not persist account: %s", err)
+		return nil
+	} else if exists {
+		log.Printf("could not persist account: keystore file already exists for address (%s)", acc.Addr())
+		return nil
+	}
+
 	// Save to disk
-	filePath := fmt.Sprintf("%s/keystore-%s.json", keystorePath, acc.addr.Encoded)
 	f, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("failed creating file: %w", err)
@@ -215,10 +221,11 @@ func createKeystoreFile(acc MassaAccount, password string) (KeystoreFile, error)
 	return keystoreFile, nil
 }
 
-func getAccountFromKeystore(addr string, password string, keystorePath string) (MassaAccount, error) {
+func getAccountFromKeystore(addr string, password string, keystoreDir string) (MassaAccount, error) {
 
 	// Find corresponding keystore file
-	fullPath := fmt.Sprintf("%s/keystore-%s.json", keystorePath, addr)
+	fileName := fmt.Sprintf("keystore-%s.json", addr)
+	fullPath := filepath.Join(keystoreDir, fileName)
 	f, err := os.Open(fullPath)
 	if err != nil {
 		return MassaAccount{}, fmt.Errorf("failed opening keystore file: %w", err)
