@@ -14,7 +14,8 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 - Call smart contracts.
 
 
-### Planned Work ###
+### Planned Work / In Progress ###
+- Add more examples.
 - Improve test coverage.
 - Add structured logger.
 - Implement [Massa Standard](https://github.com/massalabs/massa-standards/blob/main/wallet/file-format.md) for wallet files
