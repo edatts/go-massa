@@ -11,4 +11,5 @@ var (
 	ErrDecodeFailed     = errors.New("failed decoding private key")
 	ErrReadUvarint      = errors.New("failed reading version uvarint")
 	ErrAccountNotFound  = errors.New("account not found for address")
+	ErrIsDir            = errors.New("provide path to file is directory path")
 )

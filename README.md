@@ -18,7 +18,8 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 - Add more examples.
 - Improve test coverage.
 - Add structured logger.
-- Implement [Massa Standard](https://github.com/massalabs/massa-standards/blob/main/wallet/file-format.md) for wallet files
+- Top level functions for sending transactions.
+- Implement [Massa Standard](https://github.com/massalabs/massa-standards/blob/main/wallet/file-format.md) for wallet files.
 - Add support for seed phrases as per [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki).
 - Add support for Heirarchical Deterministic wallets as per [SLIP-10](https://github.com/satoshilabs/slips/blob/master/slip-0010.md).
 - Replace current wallet/accountManager model with a stateful wallet implementation.
@@ -29,7 +30,10 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 - Get native balances.
 - Deploy WASM bytecode.
 - Custom configuration improvements.
-- Unify all functionality under a "`MassaClient`"
+- Unify all functionality under a "`MassaClient`".
+- Get Operations.
+- Get staking info.
+- ApiClient chain event streams.
 
 ### Future Work ###
 - Investigate go-massa as a node client.
