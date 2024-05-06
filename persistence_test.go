@@ -19,7 +19,7 @@ func testingKeystorePath() string {
 		log.Fatal("Failed getting working dir...")
 	}
 
-	testingKeystorePath := filepath.Join(workDir, "testStorage", "keys")
+	testingKeystorePath := filepath.Join(workDir, "testStorage", "wallet", "keys")
 
 	return testingKeystorePath
 }

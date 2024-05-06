@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/zeebo/blake3"
+	"golang.org/x/term"
 )
 
 func dirExists(path string) (bool, error) {
@@ -54,7 +57,7 @@ func ensureDir(dirPath string) error {
 }
 
 func writeFile(path string, payload []byte) error {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0600)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed opening file: %w", err)
 	}
@@ -103,6 +106,42 @@ func passwordEncrypt(password string, payload []byte) ([]byte, error) {
 
 func passwordDecrypt(password string, payload []byte) ([]byte, error) {
 
+	block, _ := aes.NewCipher(hashSha256([]byte(password)))
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed instantiating GCM cipher mode: %w", err)
+	}
+
+	nonce, ciphertext := payload[:aead.NonceSize()], payload[aead.NonceSize():]
+
+	return aead.Open(nil, nonce, ciphertext, nil)
+}
+
+func readPassword() ([]byte, error) {
+	stdin := int(syscall.Stdin)
+	oldState, err := term.GetState(stdin)
+	if err != nil {
+		return nil, err
+	}
+	defer term.Restore(stdin, oldState)
+
+	sigch := make(chan os.Signal, 1)
+	signal.Notify(sigch, os.Interrupt)
+	go func() {
+		for range sigch {
+			term.Restore(stdin, oldState)
+			os.Exit(1)
+		}
+	}()
+
+	password, err := term.ReadPassword(stdin)
+	if err != nil {
+		close(sigch)
+		return nil, err
+	}
+	close(sigch)
+
+	return password, nil
 }
 
 func hashSha256(payload []byte) []byte {

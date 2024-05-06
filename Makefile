@@ -10,4 +10,6 @@ run-examples:
 
 cleanup-storage:
 	rm ./testStorage/keys/*
+	rm ./testStorage/wallet/registry.encrypted
 	rm ./exampleStorage/keys/*
+	rm ./exampleStorage/wallet/registry.encrypted

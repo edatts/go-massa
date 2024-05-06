@@ -122,7 +122,14 @@ func (w *Wallet) Init() error {
 // Maybe this doesn't need to be a user facing func.
 // The user can just deal with addresses and the
 // corresponding MassaAccount structs can just be
-// unexported and handled natively...
+// unexported and handled natively... Update: This
+// will not work becase the ApiClient does not have
+// access to the account amanger, we would need a
+// pointer to the wallet or account manager in the
+// apiClient. I'd rather not throw around pointers
+// everywhere so will instead encapsulate everything
+// in a top level client later that can call all the
+// necessary methods of each component.
 func (w *Wallet) GetAccount(addr string) (MassaAccount, error) {
 	return w.accountManager.getAccount(addr)
 }
