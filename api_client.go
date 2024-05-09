@@ -61,6 +61,8 @@ type GetProviderRequest struct {
 type ApiClient struct {
 	publicApiSvc apipb.PublicServiceClient
 	*apiManager
+
+	serializeOpReqCh chan serializeOperationRequest
 }
 
 type apiClientOptFn func(*apiClientOpts)
@@ -124,7 +126,9 @@ func NewApiClient(optFns ...apiClientOptFn) *ApiClient {
 // endpoint, and instantiates public grpc service client.
 //
 // Returns error on failure to instantiate client
-func (a *ApiClient) Init(ApiUrls ...string) error {
+func (a *ApiClient) Init(opReqCh chan serializeOperationRequest, ApiUrls ...string) error {
+
+	a.serializeOpReqCh = opReqCh
 
 	if err := a.initApiManager(ApiUrls); err != nil {
 		return fmt.Errorf("failed initializing api manager: %s", err)
@@ -203,7 +207,7 @@ func (a *ApiClient) SignMessage(acc MassaAccount, msg string) MassaSignature {
 //
 // Returns the operationId of the transacton as well as
 // an error on failure.
-func (a *ApiClient) SendTransaction(sender MassaAccount, recipientAddr string, amount uint64) (string, error) {
+func (a *ApiClient) SendTransaction(sender string, recipientAddr string, amount uint64) (string, error) {
 	var opId string
 
 	// TxData:
@@ -222,10 +226,16 @@ func (a *ApiClient) SendTransaction(sender MassaAccount, recipientAddr string, a
 	//	- nodeStatus period + periodOffset
 	expiryPeriod := nodeStatus.LastExecutedSpeculativeSlot.Period + DEFAULT_PERIOD_OFFSET
 
-	serializedOp, opId, err := serializeOperation(sender, txData, expiryPeriod, nodeStatus.ChainId)
+	// Request serialized operation from wallet
+	serializedOp, opId, err := a.requestSerializedOperation(sender, txData, expiryPeriod, nodeStatus.ChainId)
 	if err != nil {
-		return "", fmt.Errorf("failed serializing transaction operation: %w", err)
+		return "", fmt.Errorf("could not get serialized operation: %w", err)
 	}
+
+	// serializedOp, opId, err := serializeOperation(sender, txData, expiryPeriod, nodeStatus.ChainId)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed serializing transaction operation: %w", err)
+	// }
 
 	// Send request
 	stream, err := a.publicApiSvc.SendOperations(context.Background())
@@ -315,7 +325,7 @@ func (a *ApiClient) ReadSC(caller string, callData CallData) ([]byte, error) {
 //
 // Returns the operationId of the call, as well as an error
 // in the event of failure.
-func (a *ApiClient) CallSC(caller MassaAccount, callData CallData) (string, error) {
+func (a *ApiClient) CallSC(callerAddr string, callData CallData) (string, error) {
 
 	// Validate target is contract
 	if !addressIsContract(callData.TargetAddress) {
@@ -331,11 +341,17 @@ func (a *ApiClient) CallSC(caller MassaAccount, callData CallData) (string, erro
 	// Get expiry period
 	expiryPeriod := nodeStatus.LastExecutedSpeculativeSlot.Period + DEFAULT_PERIOD_OFFSET
 
-	// Serialize CallSC operation
-	serializedOp, opId, err := serializeOperation(caller, callData, expiryPeriod, nodeStatus.ChainId)
+	// Request serialized operation from wallet
+	serializedOp, opId, err := a.requestSerializedOperation(callerAddr, callData, expiryPeriod, nodeStatus.ChainId)
 	if err != nil {
-		return "", fmt.Errorf("failed serializing contract call operation: %w", err)
+		return "", fmt.Errorf("could not get serialized operation: %w", err)
 	}
+
+	// Serialize CallSC operation
+	// serializedOp, opId, err := serializeOperation(caller, callData, expiryPeriod, nodeStatus.ChainId)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed serializing contract call operation: %w", err)
+	// }
 
 	stream, err := a.publicApiSvc.SendOperations(context.Background())
 	if err != nil {
@@ -479,4 +495,31 @@ func (a *ApiClient) setNewPublicApiSvcClient(grpcAddr string) {
 	}
 
 	a.publicApiSvc = apipb.NewPublicServiceClient(conn)
+}
+
+func (a *ApiClient) requestSerializedOperation(callerAddr string, opData OperationData, expiryPeriod, chainId uint64) ([]byte, string, error) {
+	var (
+		resultCh = make(chan serializeOperationResult)
+		errCh    = make(chan error)
+	)
+
+	req := serializeOperationRequest{
+		callerAddr:   callerAddr,
+		opData:       opData,
+		expiryPeriod: expiryPeriod,
+		chainId:      chainId,
+		resultCh:     resultCh,
+		errCh:        errCh,
+	}
+
+	a.serializeOpReqCh <- req
+
+	select {
+	case res := <-resultCh:
+		log.Printf("Got result...")
+		return res.serializedOp, res.opId, nil
+	case err := <-errCh:
+		log.Printf("Got error...")
+		return nil, "", fmt.Errorf("error response: %w", err)
+	}
 }

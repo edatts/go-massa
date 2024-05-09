@@ -129,7 +129,7 @@ func (w *Wallet) Init() error {
 // apiClient. I'd rather not throw around pointers
 // everywhere so will instead encapsulate everything
 // in a top level client later that can call all the
-// necessary methods of each component.
+// necessarymethods of each component.
 func (w *Wallet) GetAccount(addr string) (MassaAccount, error) {
 	return w.accountManager.getAccount(addr)
 }

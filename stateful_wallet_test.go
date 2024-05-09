@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func testingWalletHome() string {
+	workDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Failed getting working dir...")
+	}
+
+	return filepath.Join(workDir, "testStorage", "wallet")
+}
+
 func testingRegistryPath() string {
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -38,8 +47,8 @@ func TestSaveAndLoadRegistry(t *testing.T) {
 		KeystoreFilePath: "/probably/a/real/file-path",
 	}
 
-	reg.RegisteredAccounts[regAcc0.Address] = &regAcc0
-	reg.RegisteredAccounts[regAcc1.Address] = &regAcc1
+	reg.RegisteredAccounts[regAcc0.Address] = regAcc0
+	reg.RegisteredAccounts[regAcc1.Address] = regAcc1
 
 	// Test save
 	if err := reg.save(); err != nil {
@@ -52,7 +61,7 @@ func TestSaveAndLoadRegistry(t *testing.T) {
 	}
 
 	// Manually clear registered accounts
-	reg.RegisteredAccounts = make(map[string]*RegisteredAccount)
+	reg.RegisteredAccounts = make(map[string]RegisteredAccount)
 
 	// Test load
 	// if err := reg.load(regPassword); err != nil {

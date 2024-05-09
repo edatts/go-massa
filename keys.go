@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/njones/base58"
-	"github.com/zeebo/blake3"
 )
 
 // MassaPrivateKey contains the crypto ed25519.PrivateKey,
@@ -109,6 +108,7 @@ func encodeBytes(bytes []byte, version uint64) string {
 	return base58.BitcoinEncoding.EncodeToString(buf)
 }
 
+// Generates a user address from the associated pubkey.
 func newMassaAddress(massaPub massaPubKey) massaAddress {
 	var versionBuf []byte
 	versionBuf = binary.AppendUvarint(versionBuf, massaPub.Version)
@@ -117,9 +117,7 @@ func newMassaAddress(massaPub massaPubKey) massaAddress {
 	toHashBuf = binary.AppendUvarint(toHashBuf, massaPub.Version)
 	toHashBuf = append(toHashBuf, []byte(massaPub.Key)...)
 
-	hasher := blake3.New()
-	hasher.Write(toHashBuf)
-	hash := hasher.Sum(nil)
+	hash := hashBlake3(toHashBuf)
 
 	var toEncode []byte
 	toEncode = append(toEncode, versionBuf...)
@@ -127,9 +125,8 @@ func newMassaAddress(massaPub massaPubKey) massaAddress {
 
 	encoded := base58.BitcoinEncoding.EncodeToString(toEncode)
 
-	addressCategory := 0
-
-	addrBytes := []byte{byte(addressCategory)}
+	var addrBytes []byte
+	addrBytes = binary.AppendUvarint(addrBytes, 0)
 	addrBytes = append(addrBytes, toEncode...)
 
 	return massaAddress{
@@ -155,7 +152,7 @@ func addressToBytes(addr string, isUser bool) ([]byte, error) {
 
 		cutAddr = after
 
-		addrBytes = append(addrBytes, 0)
+		addrBytes = binary.AppendUvarint(addrBytes, 0)
 
 	case false:
 
@@ -166,7 +163,7 @@ func addressToBytes(addr string, isUser bool) ([]byte, error) {
 
 		cutAddr = after
 
-		addrBytes = append(addrBytes, 1)
+		addrBytes = binary.AppendUvarint(addrBytes, 1)
 
 	}
 
@@ -178,6 +175,16 @@ func addressToBytes(addr string, isUser bool) ([]byte, error) {
 	addrBytes = append(addrBytes, decoded...)
 
 	return addrBytes, nil
+}
+
+func getAddressVerison() {
+
+	// Cut prefix
+
+	// Decode
+
+	// Read version
+
 }
 
 // TODO: Implement...

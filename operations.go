@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/njones/base58"
-	"github.com/zeebo/blake3"
 )
 
 type OperationType int
@@ -152,34 +151,29 @@ func getBytesToHash(chainId uint64, pubKeyBytes []byte, opBytes []byte) []byte {
 	return resultBytes
 }
 
-func signOpDigest(acc MassaAccount, digest []byte) MassaSignature {
+// func signOpDigest(acc MassaAccount, digest []byte) MassaSignature {
 
-	// // Hash payload with blake3
-	// hasher := blake3.New()
-	// hasher.Write(payload)
-	// digest := hasher.Sum(nil)
+// 	// Sign hash digest
+// 	sig := acc.Sign(digest)
 
-	// Sign hash digest
-	sig := acc.Sign(digest)
+// 	// Encode signature
+// 	encoded := encodeBytes(sig, acc.priv.Version)
 
-	// Encode signature
-	encoded := encodeBytes(sig, acc.priv.Version)
+// 	// Verison
+// 	var version []byte
+// 	version = binary.AppendUvarint(version, acc.priv.Version)
 
-	// Verison
-	var version []byte
-	version = binary.AppendUvarint(version, acc.priv.Version)
+// 	// Serialized
+// 	var serialized []byte
+// 	serialized = append(serialized, version...)
+// 	serialized = append(serialized, sig...)
 
-	// Serialized
-	var serialized []byte
-	serialized = append(serialized, version...)
-	serialized = append(serialized, sig...)
-
-	return MassaSignature{
-		Encoded:    encoded,
-		Serialized: serialized,
-		PublicKey:  acc.pub.Encoded,
-	}
-}
+// 	return MassaSignature{
+// 		Encoded:    encoded,
+// 		Serialized: serialized,
+// 		PublicKey:  acc.pub.Encoded,
+// 	}
+// }
 
 func serializeOperation(caller MassaAccount, opData OperationData, expiryPeriod, chainId uint64) ([]byte, string, error) {
 
@@ -194,16 +188,20 @@ func serializeOperation(caller MassaAccount, opData OperationData, expiryPeriod,
 	serializedPub = append(serializedPub, caller.pub.Key...)
 
 	// Hash operation content
-	opContentHash := hashOpContents(getBytesToHash(chainId, serializedPub, opContentBytes))
+	// opContentHash := hashBlake3(getBytesToHash(chainId, serializedPub, opContentBytes))
 
 	// Sign operation
-	massaSig := signOpDigest(caller, opContentHash)
+	// massaSig := signOpDigest(caller, opContentHash)
+	massaSig := caller.sign(getBytesToHash(chainId, serializedPub, opContentBytes))
 
 	// Serialize operation
 	var serializedOp = []byte{}
 	serializedOp = append(serializedOp, massaSig.Serialized...)
 	serializedOp = append(serializedOp, serializedPub...)
 	serializedOp = append(serializedOp, opContentBytes...)
+
+	// Hash operation content
+	opContentHash := hashBlake3(getBytesToHash(chainId, serializedPub, opContentBytes))
 
 	// Encode operation id
 	var serializedOpId = []byte{}
@@ -213,13 +211,6 @@ func serializeOperation(caller MassaAccount, opData OperationData, expiryPeriod,
 	opId := OPERATION_ID_PREFIX + base58.BitcoinEncoding.EncodeToString(serializedOpId)
 
 	return serializedOp, opId, nil
-}
-
-func hashOpContents(payload []byte) []byte {
-	// Hash payload with blake3
-	hasher := blake3.New()
-	hasher.Write(payload)
-	return hasher.Sum(nil)
 }
 
 // For now this func just hardcodes a fee that is likely to

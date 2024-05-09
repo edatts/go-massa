@@ -35,13 +35,13 @@ const (
 	WETH_CONTRACT_MAINNET = "AS124vf3YfAJCSCQVYKczzuWWpXrximFpbTmX4rheLs5uNSftiiRY"
 )
 
-func TestJsonRpcCall(t *testing.T) {
+// func TestJsonRpcCall(t *testing.T) {
 
-	addr := "https://mainnet.massa.net/api/v2"
+// 	addr := "https://mainnet.massa.net/api/v2"
 
-	publicJsonRpcGetStatus(addr)
+// 	publicJsonRpcGetStatus(addr)
 
-}
+// }
 
 func TestSerializeTransactionOperation(t *testing.T) {
 
@@ -154,9 +154,18 @@ func TestSerializeTransactionOperation(t *testing.T) {
 
 func TestReadSC(t *testing.T) {
 
+	// Need to use a funded account on buildnet becase Fee and
+	// CallerAddress are not optional when using gRPC public API
+	testAcc := getBuildnetTestAccount()
+
+	wallet := NewStatefulWallet(WithCustomHome(testingWalletHome()))
+	if err := wallet.Init(); err != nil {
+		t.Errorf("failed initializing wallet: %s", err)
+	}
+
 	// Create and init api client
 	apiClient := NewApiClient()
-	if err := apiClient.Init(BUILDNET_JSON_RPC_ADDR); err != nil {
+	if err := apiClient.Init(wallet.opReqCh, BUILDNET_JSON_RPC_ADDR); err != nil {
 		t.Errorf("failed initializing api client: %s", err)
 	}
 
@@ -172,10 +181,6 @@ func TestReadSC(t *testing.T) {
 	params = append(params, wmasAddrBytes...)
 	params = binary.LittleEndian.AppendUint32(params, uint32(len(usdcAddrBytes)))
 	params = append(params, usdcAddrBytes...)
-
-	// Need to use a funded account on buildnet becase Fee and
-	// CallerAddress are not optional when using gRPC public API
-	testAcc := getBuildnetTestAccount()
 
 	callData := CallData{
 		Fee:            10_000_000,
@@ -207,6 +212,18 @@ func TestCallSC(t *testing.T) {
 	// Expected storage cost 96 * 100_000 nMAS
 	//	96_000_000 nMAS
 
+	testAcc := getBuildnetTestAccount()
+
+	wallet := NewStatefulWallet(WithCustomHome(testingWalletHome()))
+	if err := wallet.Init(); err != nil {
+		t.Errorf("failed initializing wallet: %s", err)
+	}
+
+	testAddr, err := wallet.ImportFromPriv(testAcc.priv.Encoded, "password")
+	if err != nil {
+		t.Errorf("failed importing test account: %s", err)
+	}
+
 	var (
 		amountToWrap uint64 = 100_000_000 // in nMAS
 		storageCost  uint64 = 9_600_000
@@ -214,11 +231,9 @@ func TestCallSC(t *testing.T) {
 
 	// Create and init api client
 	apiClient := NewApiClient()
-	if err := apiClient.Init(BUILDNET_JSON_RPC_ADDR); err != nil {
+	if err := apiClient.Init(wallet.opReqCh, BUILDNET_JSON_RPC_ADDR); err != nil {
 		t.Errorf("failed initializing api client: %s", err)
 	}
-
-	testAcc := getBuildnetTestAccount()
 
 	// Get initial balance
 	initialBalance, err := getWMABalance(apiClient, testAcc.addr.Encoded)
@@ -234,7 +249,7 @@ func TestCallSC(t *testing.T) {
 		TargetFunction: "deposit",
 	}
 
-	_, err = apiClient.CallSC(testAcc, callData)
+	_, err = apiClient.CallSC(testAddr, callData)
 	if err != nil {
 		t.Errorf("failed calling contract: %s", err)
 	}
