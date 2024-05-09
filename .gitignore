@@ -2,4 +2,4 @@ testStorage/
 exampleStorage/
 c.out
 massa_client.go
-wallet.go.bak
+wallet_manager.go.bak
