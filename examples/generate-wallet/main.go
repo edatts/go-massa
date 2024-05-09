@@ -17,23 +17,18 @@ func main() {
 	}
 	customHome := filepath.Join(wd, "exampleStorage", "wallet")
 
-	wallet := massa.NewWallet(massa.WithCustomWalletHome(customHome))
+	wallet := massa.NewWallet(massa.WithCustomHome(customHome))
 	if err := wallet.Init(); err != nil {
 		log.Fatal(err)
 	}
 
 	// Empty password will result in a user prompt for a password
 	password := "password"
-	addr, err := wallet.GenerateAccount(password)
+	_, err = wallet.GenerateAccount(password)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	acc, err := wallet.GetAccount(addr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Account: %+v", acc)
+	log.Printf("Accounts: %v", wallet.ListUnlockedAccounts())
 
 }

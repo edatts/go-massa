@@ -69,7 +69,7 @@ func (m *MassaAccount) Addr() string {
 }
 
 // Generates a Massa Account and saves the corresponding keystore
-// file to defaultKeystoreDir(). The user will be prompted
+// file to the default directory. The user will be prompted
 // for a password.
 //
 // Returns the generated account.
@@ -88,12 +88,12 @@ func GenerateAccount() (MassaAccount, error) {
 	return acc, nil
 }
 
-// Imports the account into the wallet at the default keystore
-// location (see defaultKeystoreDir()). The user will be prompted
-// for a password.
+// Loads the corresponding account and saves the keystore file at
+// the default keystore location (see defaultKeystoreDir()). The
+// user will be prompted for a password.
 //
 // Returns the imported account.
-func ImportAccount(privEncoded string) (MassaAccount, error) {
+func LoadAccountFromPriv(privEncoded string) (MassaAccount, error) {
 
 	acc, err := accountFromPriv(privEncoded)
 	if err != nil {
@@ -116,4 +116,26 @@ func newMassaAccount(priv ed25519.PrivateKey, pub ed25519.PublicKey) MassaAccoun
 		pub:  massaPub,
 		addr: newMassaAddress(massaPub),
 	}
+}
+
+func accountFromPriv(privEncoded string) (MassaAccount, error) {
+
+	// Here the decoded private key returns only the first 32
+	// bytes of the ed25519 "PrivateKey" which the package
+	// refers to as the seed.
+	seed, version, err := decodePriv(privEncoded)
+	if err != nil {
+		return MassaAccount{}, fmt.Errorf("failed decoding private key: %w", err)
+	}
+
+	if version != KEYS_VERSION_NUMBER {
+		return MassaAccount{}, fmt.Errorf("unexpected keys version, expected (%d), got (%d)", KEYS_VERSION_NUMBER, version)
+	}
+
+	priv := ed25519.NewKeyFromSeed(seed)
+
+	var pub = ed25519.PublicKey(make([]byte, 32))
+	copy(pub, priv[32:])
+
+	return newMassaAccount(priv, pub), nil
 }

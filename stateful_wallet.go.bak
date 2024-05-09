@@ -10,34 +10,6 @@ import (
 	"sync"
 )
 
-// An improvement to the current wallet would be to persist it's
-// state to disk so that the user does not have to load previously
-// generated or imported wallets manually.
-//
-// Implementation steps:
-//	- Design wallet state file and add persistence funcs ---DONE---
-//	- Password encrypt wallet state file? ---DONE---
-//	- Locate wallet state file on Init(), create if not present. ---DONE---
-//	- Replace LoadAccount method with UnlockAccount ("loading" will
-//	  become "unlocking")
-//	- Replace ImportAccount with ImportAccountFromPriv
-//	- Replace LoadAccountFromPriv with ImportAccount
-//
-// More work is required on this implementation to improve
-// how signing is carried out and how accounts are handled
-//
-// Additional work:
-//	- Re-design such that accounts are never passed to other
-//	  components of the SDK.
-//	- Implement signing requests. The idea here is that the
-//	  api client and other components will be able to request
-//	  signatures from the wallet, this way keys always stay
-//	  within the wallet and the wallet can reject requests.
-//	- Refactor ApiClient to make signing requests with the
-//	  wallet instead of getting an account from the wallet
-//	  and doing the signing inside the api client.
-//
-
 const (
 	registry_file_name string = "registry.encrypted"
 )
@@ -132,6 +104,10 @@ func NewStatefulWallet(optFns ...statefulWalletOptFunc) *StatefulWallet {
 	}
 }
 
+// This function creates the wallet home directory if it is
+// not already present, creates a registry file that keeps
+// track of which wallets have been previously imported, and
+// starts the signing and operation serialization loops.
 func (s *StatefulWallet) Init() error {
 
 	// Check for registry file
@@ -184,6 +160,13 @@ func (s *StatefulWallet) startSerializeOperationRequestLoop() {
 }
 
 // TODO: Unit tests...
+// Generates a new Massa Account, saves the keystore file, and
+// registers the account with the wallet registry.
+//
+// In the case where an empty string "" is provided as the
+// password, the user will be prompted to imput a password.
+//
+// Returns the address of the generated account and an error.
 func (s *StatefulWallet) GenerateAccount(accountPassword string) (string, error) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -212,6 +195,14 @@ func (s *StatefulWallet) GenerateAccount(accountPassword string) (string, error)
 }
 
 // TODO: Unit tests...
+// Derives a single account from the prefixed and base58 encoded
+// private key, persists it to disk, registers it with the wallet
+// registry and unlocks the wallet.
+//
+// In the case where an empty string "" is provided as the
+// password, the user will be prompted to imput a password.
+//
+// Returns the address of the imported account and an error.
 func (s *StatefulWallet) ImportFromPriv(privEncoded, password string) (addr string, err error) {
 	acc, err := accountFromPriv(privEncoded)
 	if err != nil {
@@ -237,6 +228,14 @@ func (s *StatefulWallet) ImportFromPriv(privEncoded, password string) (addr stri
 }
 
 // TODO: Unit tests...
+// Derives a single account from the keystore file, registers
+// the account with the wallet registry, and unlocks the
+// account.
+//
+// In the case where an empty string "" is provided as the
+// password, the user will be prompted to imput a password.
+//
+// Returns the address of the imported account and an error.
 func (s *StatefulWallet) ImportFromFile(filePath, password string) (addr string, err error) {
 
 	acc, err := loadAccountFromKeystore(filePath, password)
@@ -258,6 +257,9 @@ func (s *StatefulWallet) ImportFromFile(filePath, password string) (addr string,
 }
 
 // TODO: Unit tests...
+// Unlocks the account corresponding to the provided address.
+// If the account is not registered or the wallet file is not
+// present an error will be returned.
 func (s *StatefulWallet) UnlockAccount(addr, password string) error {
 
 	if _, ok := s.unlockedAccounts[addr]; ok {
@@ -281,22 +283,6 @@ func (s *StatefulWallet) UnlockAccount(addr, password string) error {
 	s.unlockedAccounts[addr] = acc
 
 	return nil
-}
-
-// TODO: Deprecate GetAccount() and refactor the wallet such
-// that accounts are not passed outside of the waller and all
-// signing is carried out inside the wallet. Other components
-// of the SDK should make signing requests to the wallet
-// which should only be approved if require approval is turned
-// off or if the request is properly authenticated using the
-// account password or a long-lived access token.
-func (s *StatefulWallet) GetAccount(addr string) (MassaAccount, error) {
-
-	if !s.registry.hasAccount(addr) {
-		return MassaAccount{}, ErrRegAccountNotFound
-	}
-
-	return MassaAccount{}, nil
 }
 
 func (s *StatefulWallet) GetWalletHome() string {

@@ -158,14 +158,14 @@ func TestReadSC(t *testing.T) {
 	// CallerAddress are not optional when using gRPC public API
 	testAcc := getBuildnetTestAccount()
 
-	wallet := NewStatefulWallet(WithCustomHome(testingWalletHome()))
+	wallet := NewWallet(WithCustomHome(testingWalletHome()))
 	if err := wallet.Init(); err != nil {
 		t.Errorf("failed initializing wallet: %s", err)
 	}
 
 	// Create and init api client
 	apiClient := NewApiClient()
-	if err := apiClient.Init(wallet.opReqCh, BUILDNET_JSON_RPC_ADDR); err != nil {
+	if err := apiClient.Init(wallet, BUILDNET_JSON_RPC_ADDR); err != nil {
 		t.Errorf("failed initializing api client: %s", err)
 	}
 
@@ -214,7 +214,7 @@ func TestCallSC(t *testing.T) {
 
 	testAcc := getBuildnetTestAccount()
 
-	wallet := NewStatefulWallet(WithCustomHome(testingWalletHome()))
+	wallet := NewWallet(WithCustomHome(testingWalletHome()))
 	if err := wallet.Init(); err != nil {
 		t.Errorf("failed initializing wallet: %s", err)
 	}
@@ -231,7 +231,7 @@ func TestCallSC(t *testing.T) {
 
 	// Create and init api client
 	apiClient := NewApiClient()
-	if err := apiClient.Init(wallet.opReqCh, BUILDNET_JSON_RPC_ADDR); err != nil {
+	if err := apiClient.Init(wallet, BUILDNET_JSON_RPC_ADDR); err != nil {
 		t.Errorf("failed initializing api client: %s", err)
 	}
 

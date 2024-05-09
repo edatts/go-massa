@@ -24,11 +24,6 @@ func main() {
 		recipientAddr = "AU12oLjNkH8ywGaeqWuSE1CxdWLhG7hsCW8zZgasax1Csn3tW1mni"
 	)
 
-	apiClient := massa.NewApiClient()
-	if err := apiClient.Init(jsonRpcApi); err != nil {
-		log.Fatal(err)
-	}
-
 	// Get custom home
 	wd, err := os.Getwd()
 	if err != nil {
@@ -36,22 +31,22 @@ func main() {
 	}
 	customHome := filepath.Join(wd, "exampleStorage")
 
-	wallet := massa.NewWallet(massa.WithCustomWalletHome(customHome))
+	wallet := massa.NewWallet(massa.WithCustomHome(customHome))
 	if err := wallet.Init(); err != nil {
 		log.Fatal(err)
 	}
 
-	senderAddr, err := wallet.ImportAccount(senderSecretKey, senderPassword)
+	apiClient := massa.NewApiClient()
+	if err := apiClient.Init(wallet, jsonRpcApi); err != nil {
+		log.Fatal(err)
+	}
+
+	senderAddr, err := wallet.ImportFromPriv(senderSecretKey, senderPassword)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	senderAcc, err := wallet.GetAccount(senderAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	opId, err := apiClient.SendTransaction(senderAcc, recipientAddr, amount)
+	opId, err := apiClient.SendTransaction(senderAddr, recipientAddr, amount)
 	if err != nil {
 		log.Fatal(err)
 	}

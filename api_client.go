@@ -2,7 +2,6 @@ package massa
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
@@ -10,22 +9,10 @@ import (
 
 	apipb "github.com/edatts/go-massa/protos/massa/api/v1"
 	massapb "github.com/edatts/go-massa/protos/massa/model/v1"
-	"github.com/njones/base58"
-	"github.com/zeebo/blake3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
-
-// For now ApiType simply defines whether the API
-// is private or public. Later on it could also
-// differentiate between JSON-RPC and gRPC.
-// type ApiType int
-
-// const (
-// 	API_TYPE_PRIVATE ApiType = iota
-// 	API_TYPE_PUBLIC
-// )
 
 // RpcType is an enum that represents one of two types
 // of RPC that is available on each ApiProvider
@@ -63,6 +50,7 @@ type ApiClient struct {
 	*apiManager
 
 	serializeOpReqCh chan serializeOperationRequest
+	signatureReqCh   chan signatureRequest
 }
 
 type apiClientOptFn func(*apiClientOpts)
@@ -126,9 +114,10 @@ func NewApiClient(optFns ...apiClientOptFn) *ApiClient {
 // endpoint, and instantiates public grpc service client.
 //
 // Returns error on failure to instantiate client
-func (a *ApiClient) Init(opReqCh chan serializeOperationRequest, ApiUrls ...string) error {
+func (a *ApiClient) Init(wallet *Wallet, ApiUrls ...string) error {
 
-	a.serializeOpReqCh = opReqCh
+	a.serializeOpReqCh = wallet.opReqCh
+	a.signatureReqCh = wallet.sigReqCh
 
 	if err := a.initApiManager(ApiUrls); err != nil {
 		return fmt.Errorf("failed initializing api manager: %s", err)
@@ -175,33 +164,17 @@ func (a *ApiClient) makeGetProviderRequest(rpcType RpcType) (chan apiProvider, c
 
 // Takes an arbitrary message and signs the blake3 digest
 // of it's utf-8 decoded bytes.
-func (a *ApiClient) SignMessage(acc MassaAccount, msg string) MassaSignature {
-
-	// Hash the message
-	hasher := blake3.New()
-	hasher.Write([]byte(msg))
-	digest := hasher.Sum(nil)
-
-	// Sign the digest
-	rawSig := acc.Sign(digest)
-
-	// Serialize
-	var serializedSig []byte
-	serializedSig = binary.AppendUvarint(serializedSig, acc.priv.Version)
-	serializedSig = append(serializedSig, rawSig...)
-
-	// Encode
-	encoded := base58.BitcoinEncoding.EncodeToString(serializedSig)
-
-	return MassaSignature{
-		PublicKey:  acc.pub.Encoded,
-		Encoded:    encoded,
-		Serialized: serializedSig,
+func (a *ApiClient) SignMessage(addr string, msg string) (MassaSignature, error) {
+	sig, err := requestSignature(addr, []byte(msg), a.signatureReqCh)
+	if err != nil {
+		return MassaSignature{}, fmt.Errorf("failed getting signature: %w", err)
 	}
+
+	return sig, err
 }
 
-// Sends a transaction from the provided MassaAccount to
-// the recipient address.
+// Sends a transaction from the sender address to the
+// recipient address.
 //
 // The amount argument should be a value in nanoMassa.
 //
@@ -321,7 +294,7 @@ func (a *ApiClient) ReadSC(caller string, callData CallData) ([]byte, error) {
 }
 
 // Calls a target smart contract with the provided call data
-// from the provided MassaAccount.
+// from the caller address.
 //
 // Returns the operationId of the call, as well as an error
 // in the event of failure.
@@ -388,6 +361,22 @@ func (a *ApiClient) CallSC(callerAddr string, callData CallData) (string, error)
 	}
 
 	return "", fmt.Errorf("unexpected response result type, check implementation")
+}
+
+// Gets the associated operations for the provided ids.
+//
+// Returns an error if the request was not successful.
+func (a *ApiClient) GetOperations(opIds ...string) ([]*massapb.OperationWrapper, error) {
+	req := &apipb.GetOperationsRequest{
+		OperationIds: opIds,
+	}
+
+	res, err := a.publicApiSvc.GetOperations(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("failed getting operations: %w", err)
+	}
+
+	return res.GetWrappedOperations(), nil
 }
 
 func (a *ApiClient) nodeStatus() (*massapb.PublicStatus, error) {

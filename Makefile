@@ -9,7 +9,5 @@ run-examples:
 	go run examples/send-coins/main.go
 
 cleanup-storage:
-	rm ./testStorage/keys/*
-	rm ./testStorage/wallet/registry.encrypted
-	rm ./exampleStorage/keys/*
-	rm ./exampleStorage/wallet/registry.encrypted
+	rm -r ./testStorage/*
+	rm -r ./exampleStorage/*
