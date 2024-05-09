@@ -22,7 +22,6 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 - Implement [Massa Standard](https://github.com/massalabs/massa-standards/blob/main/wallet/file-format.md) for wallet files.
 - Add support for seed phrases as per [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki).
 - Add support for Heirarchical Deterministic wallets as per [SLIP-10](https://github.com/satoshilabs/slips/blob/master/slip-0010.md).
-- Replace current wallet/accountManager model with a stateful wallet implementation.
 - API discovery improvements.
 - API service redundancy and transaction broadcast retries.
 - Utility for serializing smart contract parameters.
