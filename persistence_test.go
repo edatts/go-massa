@@ -1,7 +1,6 @@
 package massa
 
 import (
-	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -82,13 +81,13 @@ func TestKeystoreFiles(t *testing.T) {
 	for _, tCase := range testCases() {
 
 		// Persist the account
-		err := persistAccount(tCase.acc, tCase.password, testingKeystorePath())
+		keystoreFilePath, err := persistAccount(tCase.acc, tCase.password, testingKeystorePath())
 		if err != nil {
 			t.Errorf("failed persisting account: %s", err)
 		}
 
 		// Load the account
-		acc, err := getAccountFromKeystore(tCase.acc.addr.Encoded, tCase.password, testingKeystorePath())
+		acc, err := loadAccountFromKeystore(keystoreFilePath, tCase.password)
 		if err != nil {
 			t.Errorf("failed getting account from keystore: %s", err)
 		}
@@ -114,19 +113,16 @@ func TestWrongPassword(t *testing.T) {
 
 	for _, tCase := range testCases() {
 
-		err := persistAccount(tCase.acc, tCase.password, testingKeystorePath())
+		keystoreFilePath, err := persistAccount(tCase.acc, tCase.password, testingKeystorePath())
 		if err != nil {
 			t.Errorf("failed persisting account: %s", err)
 		}
 
 		// Assert decrypting keystore fails with wrong password
 		wrongPassword := "wrongPassword"
-		_, err = getAccountFromKeystore(tCase.acc.addr.Encoded, wrongPassword, testingKeystorePath())
+		_, err = loadAccountFromKeystore(keystoreFilePath, wrongPassword)
 		if err != nil {
-			if errors.Is(err, ErrWrongMac) {
-				continue
-			}
-			t.Errorf("enexpected error: %s", err)
+			continue
 		}
 		t.Error("expected ErrWrongMac, got nil")
 	}

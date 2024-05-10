@@ -36,8 +36,7 @@ func WithCustomHome(dir string) walletOptFunc {
 }
 
 type Wallet struct {
-	homeDir         string // Registry file name: homeDir + "registry.encrypted"
-	requireApproval bool
+	homeDir string // Registry file name: homeDir + "registry.encrypted"
 
 	registry *registry
 
@@ -94,7 +93,6 @@ func NewWallet(optFns ...walletOptFunc) *Wallet {
 	}
 	return &Wallet{
 		homeDir:          opts.homeDir,
-		requireApproval:  opts.requireApproval,
 		registry:         NewRegistry(opts.homeDir),
 		unlockedAccounts: map[string]MassaAccount{},
 		mu:               sync.RWMutex{},
@@ -105,7 +103,7 @@ func NewWallet(optFns ...walletOptFunc) *Wallet {
 
 // This function creates the wallet home directory if it is
 // not already present, creates a registry file that keeps
-// track of which wallets have been previously imported, and
+// track of which accounts have been previously imported, and
 // starts the signing and operation serialization loops.
 func (s *Wallet) Init() error {
 
@@ -329,7 +327,7 @@ func (w *Wallet) ensureDirs() error {
 }
 
 func (s *Wallet) persistAccount(acc MassaAccount, password string) (string, error) {
-	return persistAccountV2(acc, password, s.KeystoreDir())
+	return persistAccount(acc, password, s.KeystoreDir())
 }
 
 func requestSignature(addr string, payload []byte, sigRequestCh chan signatureRequest) (MassaSignature, error) {

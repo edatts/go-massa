@@ -3,3 +3,4 @@ exampleStorage/
 c.out
 massa_client.go
 wallet_manager.go.bak
+wallet_service.go

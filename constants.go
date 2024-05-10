@@ -15,9 +15,7 @@ const (
 	DEFAULT_GET_PROVIDER_MAX_RETRIES    uint32        = 3
 	DEFAULT_GET_PROVIDER_RETRY_INTERVAL time.Duration = 5 * time.Second
 
-	DEFAULT_KDF_N       = 1048576
-	DEFAULT_KDF_R       = 8
-	DEFAULT_KDF_P       = 1
+	DEFAULT_KDF_ITER    = 600_000
 	DEFAULT_KDF_KEY_LEN = 32
 
 	SECRET_KEY_PREFIX              = "S"

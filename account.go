@@ -81,7 +81,7 @@ func GenerateAccount() (MassaAccount, error) {
 
 	acc := newMassaAccount(priv, pub)
 
-	if err := persistAccount(acc, "", defaultKeystoreDir()); err != nil {
+	if _, err := persistAccount(acc, "", defaultKeystoreDir()); err != nil {
 		return MassaAccount{}, fmt.Errorf("failed saving account to file: %w", err)
 	}
 
@@ -100,7 +100,7 @@ func LoadAccountFromPriv(privEncoded string) (MassaAccount, error) {
 		return MassaAccount{}, fmt.Errorf("failed deriving account from private key: %w", err)
 	}
 
-	if err := persistAccount(acc, "", defaultKeystoreDir()); err != nil {
+	if _, err := persistAccount(acc, "", defaultKeystoreDir()); err != nil {
 		return MassaAccount{}, fmt.Errorf("failed saving account to file: %s", err)
 	}
 
