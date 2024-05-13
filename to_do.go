@@ -6,8 +6,6 @@ package massa
 //
 //	- Add comments to all public methods for GoDoc.
 //
-//	- Add nano timestamp to keystore file names.
-//
 //	- Design and implement wallet service so we can separate
 //	  wallet management/handling from wallet functions.
 //		- Add Wallet interface so we can standardize behaviour
@@ -20,8 +18,6 @@ package massa
 //	- Better test coverage.
 //
 //	- More examples.
-//
-//	- Implement Massa Standard for wallet files.
 //
 //	- Add argument utils for smart contract params.
 //

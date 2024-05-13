@@ -7,7 +7,7 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 ### Current Features ###
 - Generate Massa accounts.
 - Import existing Massa accounts from secret keys.
-- Securely persist secret keys to disk with a password using AES-CTR mode encryption, Scrypt key derivation function, and sha256-HMAC.
+- Securely persist secret keys to disk as per the [Massa Standard for wallet files](https://github.com/massalabs/massa-standards/blob/main/wallet/file-format.md).
 - Automatic public API discovery and reconnection.
 - Initiate native MAS transfers.
 - Read smart contracts.
@@ -19,7 +19,6 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 - Improve test coverage.
 - Add structured logger.
 - Top level functions for sending transactions.
-- Implement [Massa Standard](https://github.com/massalabs/massa-standards/blob/main/wallet/file-format.md) for wallet files.
 - Add support for seed phrases as per [BIP-39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki).
 - Add support for Heirarchical Deterministic wallets as per [SLIP-10](https://github.com/satoshilabs/slips/blob/master/slip-0010.md).
 - API discovery improvements.
@@ -28,11 +27,12 @@ This SDK is a work in progress and is early in it's development lifecycle. It is
 - Read datastore keys and values.
 - Get native balances.
 - Deploy WASM bytecode.
-- Custom configuration improvements.
-- Unify all functionality under a "`MassaClient`".
 - Get Operations.
 - Get staking info.
 - ApiClient chain event streams.
+- Custom configuration improvements.
+- Unify all functionality under a "`MassaClient`".
+
 
 ### Future Work ###
 - Investigate go-massa as a node client.
