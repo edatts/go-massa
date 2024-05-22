@@ -48,9 +48,6 @@ type GetProviderRequest struct {
 type ApiClient struct {
 	publicApiSvc apipb.PublicServiceClient
 	*apiManager
-
-	serializeOpReqCh chan serializeOperationRequest
-	signatureReqCh   chan signatureRequest
 }
 
 type apiClientOptFn func(*apiClientOpts)
@@ -114,10 +111,7 @@ func NewApiClient(optFns ...apiClientOptFn) *ApiClient {
 // endpoint, and instantiates public grpc service client.
 //
 // Returns error on failure to instantiate client
-func (a *ApiClient) Init(wallet *Wallet, ApiUrls ...string) error {
-
-	a.serializeOpReqCh = wallet.opReqCh
-	a.signatureReqCh = wallet.sigReqCh
+func (a *ApiClient) Init(ApiUrls ...string) error {
 
 	if err := a.initApiManager(ApiUrls); err != nil {
 		return fmt.Errorf("failed initializing api manager: %s", err)
@@ -162,55 +156,36 @@ func (a *ApiClient) makeGetProviderRequest(rpcType RpcType) (chan apiProvider, c
 	return resultCh, errorCh
 }
 
-// Takes an arbitrary message and signs the blake3 digest
-// of it's utf-8 decoded bytes.
-func (a *ApiClient) SignMessage(addr string, msg string) (MassaSignature, error) {
-	sig, err := requestSignature(addr, []byte(msg), a.signatureReqCh)
-	if err != nil {
-		return MassaSignature{}, fmt.Errorf("failed getting signature: %w", err)
-	}
-
-	return sig, err
-}
-
-// Sends a transaction from the sender address to the
-// recipient address.
-//
-// The amount argument should be a value in nanoMassa.
-//
-// Returns the operationId of the transacton as well as
-// an error on failure.
-func (a *ApiClient) SendTransaction(sender string, recipientAddr string, amount uint64) (string, error) {
-	var opId string
-
-	// TxData:
-	txData := TxData{
-		fee:           estimateFee(),
-		amount:        amount,
-		recipientAddr: recipientAddr,
-	}
-
+func (a *ApiClient) NewOperation(from string, opData OperationData) (Operation, error) {
 	nodeStatus, err := a.nodeStatus()
 	if err != nil {
-		return "", fmt.Errorf("failed getting node status: %w", err)
+		return Operation{}, fmt.Errorf("failed getting node status: %w", err)
 	}
 
-	// Get expiry period
-	//	- nodeStatus period + periodOffset
 	expiryPeriod := nodeStatus.LastExecutedSpeculativeSlot.Period + DEFAULT_PERIOD_OFFSET
+	chainId := nodeStatus.ChainId
 
-	// Request serialized operation from wallet
-	serializedOp, opId, err := a.requestSerializedOperation(sender, txData, expiryPeriod, nodeStatus.ChainId)
+	opContent, err := compactBytesForOperation(opData, expiryPeriod)
 	if err != nil {
-		return "", fmt.Errorf("could not get serialized operation: %w", err)
+		return Operation{}, fmt.Errorf("failed compacting operation bytes: %w", err)
 	}
 
-	// serializedOp, opId, err := serializeOperation(sender, txData, expiryPeriod, nodeStatus.ChainId)
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed serializing transaction operation: %w", err)
-	// }
+	return Operation{
+		from:         from,
+		expiryPeriod: expiryPeriod,
+		chainId:      chainId,
+		opData:       opData,
+		content:      opContent,
+	}, nil
+}
 
-	// Send request
+func (a *ApiClient) SendOperation(op Operation) (string, error) {
+
+	serializedOp, opId, err := op.Serialize()
+	if err != nil {
+		return "", fmt.Errorf("failed serializing operation: %w", err)
+	}
+
 	stream, err := a.publicApiSvc.SendOperations(context.Background())
 	if err != nil {
 		a.onPublicApiSvcError()
@@ -232,7 +207,7 @@ func (a *ApiClient) SendTransaction(sender string, recipientAddr string, amount 
 
 	res, err := stream.Recv()
 	if err != nil {
-		return "", fmt.Errorf("failed receiving operation from stream: %w", err)
+		return "", fmt.Errorf("failed receiving response from stream: %w", err)
 	}
 
 	switch res.Result.(type) {
@@ -241,9 +216,11 @@ func (a *ApiClient) SendTransaction(sender string, recipientAddr string, amount 
 		return opId, fmt.Errorf("operation (%s) failed: %w", opId, err)
 	case *apipb.SendOperationsResponse_OperationIds:
 		if len(res.GetOperationIds().GetOperationIds()) == 0 {
-			return "", fmt.Errorf("no operation ids in response")
+			return opId, fmt.Errorf("no operation ids in response")
 		}
-		opId = res.GetOperationIds().GetOperationIds()[0]
+		if res.GetOperationIds().GetOperationIds()[0] != opId {
+			return opId, fmt.Errorf("send operation response has different opId, expected (%s), got (%s)", opId, res.GetOperationIds().GetOperationIds()[0])
+		}
 	}
 
 	return opId, nil
@@ -291,76 +268,6 @@ func (a *ApiClient) ReadSC(caller string, callData CallData) ([]byte, error) {
 	}
 
 	return res.Output.CallResult, nil
-}
-
-// Calls a target smart contract with the provided call data
-// from the caller address.
-//
-// Returns the operationId of the call, as well as an error
-// in the event of failure.
-func (a *ApiClient) CallSC(callerAddr string, callData CallData) (string, error) {
-
-	// Validate target is contract
-	if !addressIsContract(callData.TargetAddress) {
-		return "", fmt.Errorf("target is not a valid contract address")
-	}
-
-	// Get node status
-	nodeStatus, err := a.nodeStatus()
-	if err != nil {
-		return "", fmt.Errorf("failed getting node status: %w", err)
-	}
-
-	// Get expiry period
-	expiryPeriod := nodeStatus.LastExecutedSpeculativeSlot.Period + DEFAULT_PERIOD_OFFSET
-
-	// Request serialized operation from wallet
-	serializedOp, opId, err := a.requestSerializedOperation(callerAddr, callData, expiryPeriod, nodeStatus.ChainId)
-	if err != nil {
-		return "", fmt.Errorf("could not get serialized operation: %w", err)
-	}
-
-	// Serialize CallSC operation
-	// serializedOp, opId, err := serializeOperation(caller, callData, expiryPeriod, nodeStatus.ChainId)
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed serializing contract call operation: %w", err)
-	// }
-
-	stream, err := a.publicApiSvc.SendOperations(context.Background())
-	if err != nil {
-		a.onPublicApiSvcError()
-		return "", fmt.Errorf("failed instantiating send operations stream: %w", err)
-	}
-
-	// We're loosing an error to the void here...
-	// TODO: Wrap it in a func to log it when we implement
-	// 		 a proper logger...
-	defer stream.CloseSend()
-
-	req := &apipb.SendOperationsRequest{
-		Operations: [][]byte{serializedOp},
-	}
-
-	if err := stream.Send(req); err != nil {
-		return "", fmt.Errorf("failed sending operation to stream: %w", err)
-	}
-
-	res, err := stream.Recv()
-	if err != nil {
-		return "", fmt.Errorf("failed receiving response on stream: %w", err)
-	}
-
-	switch result := res.Result.(type) {
-	case *apipb.SendOperationsResponse_OperationIds:
-		// Only sending one operation so only expect one Id
-		opId = result.OperationIds.OperationIds[0]
-		return opId, nil
-	case *apipb.SendOperationsResponse_Error:
-		err = errors.New(res.GetError().GetMessage())
-		return opId, fmt.Errorf("operation (%s) failed: %w", opId, err)
-	}
-
-	return "", fmt.Errorf("unexpected response result type, check implementation")
 }
 
 // Gets the associated operations for the provided ids.
@@ -484,31 +391,4 @@ func (a *ApiClient) setNewPublicApiSvcClient(grpcAddr string) {
 	}
 
 	a.publicApiSvc = apipb.NewPublicServiceClient(conn)
-}
-
-func (a *ApiClient) requestSerializedOperation(callerAddr string, opData OperationData, expiryPeriod, chainId uint64) ([]byte, string, error) {
-	var (
-		resultCh = make(chan serializeOperationResult)
-		errCh    = make(chan error)
-	)
-
-	req := serializeOperationRequest{
-		callerAddr:   callerAddr,
-		opData:       opData,
-		expiryPeriod: expiryPeriod,
-		chainId:      chainId,
-		resultCh:     resultCh,
-		errCh:        errCh,
-	}
-
-	a.serializeOpReqCh <- req
-
-	select {
-	case res := <-resultCh:
-		log.Printf("Got result...")
-		return res.serializedOp, res.opId, nil
-	case err := <-errCh:
-		log.Printf("Got error...")
-		return nil, "", fmt.Errorf("error response: %w", err)
-	}
 }
