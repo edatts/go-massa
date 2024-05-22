@@ -13,7 +13,7 @@ func testingWalletHome() string {
 		log.Fatal("Failed getting working dir...")
 	}
 
-	return filepath.Join(workDir, "testStorage", "wallet")
+	return filepath.Join(workDir, "testStorage", "massaHome", "wallet")
 }
 
 func testingRegistryPath() string {

@@ -16,8 +16,11 @@ package massa
 //		- Get datastore entries.
 //
 //	- Better test coverage.
+//		- Args tests
+//		- MassaClient tests
+//		- ApiClient tests
 //
-//	- More examples.
+//	- More examples + update existing examples.
 //
 //	- Add argument utils for smart contract params.
 //

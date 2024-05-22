@@ -19,13 +19,13 @@ type MassaAccount struct {
 	addr massaAddress
 }
 
-func (m *MassaAccount) Sign(msg []byte) []byte {
-	return m.priv.sign(msg)
-}
+// func (m *MassaAccount) Sign(msg []byte) []byte {
+// 	return m.priv.sign(msg)
+// }
 
-func (m *MassaAccount) Verify(msg, sig []byte) bool {
-	return m.pub.verify(msg, sig)
-}
+// func (m *MassaAccount) Verify(msg, sig []byte) bool {
+// 	return m.pub.verify(msg, sig)
+// }
 
 // TODO: Implement...
 // func (m *MassaAccount) signStream(r io.Reader) MassaSignature

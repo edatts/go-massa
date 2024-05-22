@@ -25,4 +25,8 @@ const (
 	OPERATION_ID_PREFIX            = "O"
 	ADDRESS_PREIX_LENGTH    uint64 = 2
 	KEYS_VERSION_NUMBER     uint64 = 0
+
+	MAX_BLOCK_GAS = 4_294_967_295
+
+	DEFAULT_MAINNET_JSON_RPC = "https://mainnet.massa.net/api/v2"
 )

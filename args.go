@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 )
 
@@ -39,7 +38,6 @@ var (
 
 func MaxI128() *big.Int {
 	val, _ := big.NewInt(0).SetString("0x7fffffffffffffffffffffffffffffff", 0)
-	// log.Fatal(success)
 	return val
 }
 
@@ -189,7 +187,6 @@ func (z Uint256) serialize() []byte {
 	binary.LittleEndian.PutUint64(b[8:16], z[2])
 	binary.LittleEndian.PutUint64(b[16:24], z[1])
 	binary.LittleEndian.PutUint64(b[24:], z[0])
-	log.Printf("b: %v", b)
 	return b
 }
 
@@ -215,7 +212,6 @@ func (z Int128) serialize() []byte {
 	var b = make([]byte, 16)
 	binary.LittleEndian.PutUint64(b[:8], z[1])
 	binary.LittleEndian.PutUint64(b[8:], z[0])
-	log.Printf("b: %v", b)
 	return b
 }
 

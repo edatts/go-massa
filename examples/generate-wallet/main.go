@@ -15,9 +15,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	customHome := filepath.Join(wd, "exampleStorage", "wallet")
+	customHome := filepath.Join(wd, "exampleStorage", "massaHome", "wallet")
 
-	wallet := massa.NewWallet(massa.WithCustomHome(customHome))
+	wallet := massa.NewWallet(massa.WithWalletHome(customHome))
 	if err := wallet.Init(); err != nil {
 		log.Fatal(err)
 	}

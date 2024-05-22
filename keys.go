@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/njones/base58"
@@ -65,7 +66,7 @@ func decodePriv(encoded string) (ed25519.PrivateKey, uint64, error) {
 
 	decoded, err := base58.BitcoinEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, 0, fmt.Errorf("%w: %s", ErrDecodeFailed, err)
+		return nil, 0, fmt.Errorf("failed decoding private key: %s", err)
 	}
 
 	version, n := binary.Uvarint(decoded)
@@ -95,10 +96,31 @@ func encodePub(pub ed25519.PublicKey, version uint64) string {
 	return fmt.Sprintf("%s%s", PUBLIC_KEY_PREFIX, body)
 }
 
-// TODO: Implement...
 func decodePub(encoded string) (ed25519.PublicKey, uint64, error) {
 
-	return nil, 0, nil
+	log.Printf("Encoded public key: %s", encoded)
+
+	// Remove prefix
+	after, ok := strings.CutPrefix(encoded, PUBLIC_KEY_PREFIX)
+	if !ok {
+		return nil, 0, fmt.Errorf("failed removing pub key prefix: %w", ErrInvalidMassaPub)
+	}
+
+	// Decode
+	decoded, err := base58.BitcoinEncoding.DecodeString(after)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed decoding public key: %w", err)
+	}
+
+	// Read version
+	version, n := binary.Uvarint(decoded)
+	if n <= 0 {
+		return nil, 0, ErrReadUvarint
+	}
+
+	pub := ed25519.PublicKey(decoded[n:])
+
+	return pub, version, nil
 }
 
 func encodeBytes(bytes []byte, version uint64) string {
@@ -177,20 +199,45 @@ func addressToBytes(addr string, isUser bool) ([]byte, error) {
 	return addrBytes, nil
 }
 
-func getAddressVerison() {
+func getAddressVerison(addr string) (uint64, error) {
 
 	// Cut prefix
+	var cutAddr string
+	switch true {
+	case strings.HasPrefix(addr, ADDRESS_CONTRACT_PREFIX):
+		cutAddr, _ = strings.CutPrefix(addr, ADDRESS_CONTRACT_PREFIX)
+	case strings.HasPrefix(addr, ADDRESS_USER_PREFIX):
+		cutAddr, _ = strings.CutPrefix(addr, ADDRESS_USER_PREFIX)
+	default:
+		return 0, fmt.Errorf("invalid address: invalid prefix")
+	}
 
 	// Decode
+	decoded, err := base58.BitcoinEncoding.DecodeString(cutAddr)
+	if err != nil {
+		return 0, fmt.Errorf("failed decoding address: %w", err)
+	}
 
 	// Read version
+	version, n := binary.Uvarint(decoded)
+	if n <= 0 {
+		return 0, fmt.Errorf("failed reading uvarint from decoded address buffer")
+	}
 
+	return version, nil
 }
 
-// TODO: Implement...
-func encodedPubToBytes(encodedPub string) ([]byte, error) {
+func serializePub(encodedPub string) ([]byte, error) {
+	pub, version, err := decodePub(encodedPub)
+	if err != nil {
+		return nil, fmt.Errorf("failed decoding public key: %w", err)
+	}
 
-	return nil, nil
+	var serializedPub []byte
+	serializedPub = binary.AppendUvarint(serializedPub, version)
+	serializedPub = append(serializedPub, pub...)
+
+	return serializedPub, nil
 }
 
 func addressIsContract(addr string) bool {

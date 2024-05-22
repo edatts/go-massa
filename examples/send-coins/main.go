@@ -29,27 +29,45 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	customHome := filepath.Join(wd, "exampleStorage")
+	customHome := filepath.Join(wd, "exampleStorage", "massaHome")
 
-	wallet := massa.NewWallet(massa.WithCustomHome(customHome))
-	if err := wallet.Init(); err != nil {
+	massaClient := massa.NewClient(massa.WithHome(customHome))
+
+	if err := massaClient.Init(jsonRpcApi); err != nil {
 		log.Fatal(err)
 	}
 
-	apiClient := massa.NewApiClient()
-	if err := apiClient.Init(wallet, jsonRpcApi); err != nil {
-		log.Fatal(err)
-	}
-
-	senderAddr, err := wallet.ImportFromPriv(senderSecretKey, senderPassword)
+	senderAddr, err := massaClient.ImportFromPriv(senderSecretKey, senderPassword)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	opId, err := apiClient.SendTransaction(senderAddr, recipientAddr, amount)
+	opId, err := massaClient.SendTransaction(senderAddr, recipientAddr, amount)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	log.Printf("Operation ID: %s", opId)
+
+	// wallet := massa.NewWallet(massa.WithWalletHome(customHome))
+	// if err := wallet.Init(); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// apiClient := massa.NewApiClient()
+	// if err := apiClient.Init(wallet, jsonRpcApi); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// senderAddr, err := wallet.ImportFromPriv(senderSecretKey, senderPassword)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// opId, err := apiClient.SendTransaction(senderAddr, recipientAddr, amount)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// log.Printf("Operation ID: %s", opId)
 }

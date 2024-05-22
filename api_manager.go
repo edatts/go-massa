@@ -64,6 +64,10 @@ func newApiManager(opts *apiManagerOpts) *apiManager {
 // TODO: Include ticker to trigger discovery sub-routine.
 func (a *apiManager) initApiManager(apiAddrs []string) error {
 
+	if len(apiAddrs) == 0 {
+		apiAddrs = append(apiAddrs, DEFAULT_MAINNET_JSON_RPC)
+	}
+
 	// Test Urls
 	var numFails int
 	for _, url := range apiAddrs {

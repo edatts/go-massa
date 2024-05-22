@@ -10,8 +10,29 @@ import (
 	"sync"
 )
 
+// Massa does not make use of HD Wallets so each new
+// account requires it's own set of secrets to recover
+// the account in the form of a YAML file and password,
+// or a raw secret key.
+//
+// Basically we have two options when it comes to
+// wallet implementation:
+//
+//	- Wallet that generates and manages multiple
+//	  accounts and stores each account separately as
+//	  it's own YAML keystore. User is responsible for
+//	  managing multiple secrets/passwords etc.
+//
+//	- HD Wallet that generates and manages multiple
+//	  accounts from a seed phrase. User is responsible
+// 	  for managing only one secret.
+//
+// Both implementations should satisfy a common interface
+// so that either one can be used in the same way.
+//
+
 const (
-	registry_file_name string = "registry.encrypted"
+	registry_file_name string = "registry.dat"
 )
 
 type walletOpts struct {
@@ -29,7 +50,7 @@ func defaultwalletOpts() *walletOpts {
 
 type walletOptFunc func(opts *walletOpts)
 
-func WithCustomHome(dir string) walletOptFunc {
+func WithWalletHome(dir string) walletOptFunc {
 	return func(opts *walletOpts) {
 		opts.homeDir = dir
 	}
@@ -42,30 +63,6 @@ type Wallet struct {
 
 	unlockedAccounts map[string]MassaAccount
 	mu               sync.RWMutex
-
-	sigReqCh chan signatureRequest
-	opReqCh  chan serializeOperationRequest
-}
-
-type signatureRequest struct {
-	accountAddr string
-	payload     []byte
-	resultCh    chan MassaSignature
-	errCh       chan error
-}
-
-type serializeOperationRequest struct {
-	callerAddr   string
-	opData       OperationData
-	expiryPeriod uint64
-	chainId      uint64
-	resultCh     chan serializeOperationResult
-	errCh        chan error
-}
-
-type serializeOperationResult struct {
-	serializedOp []byte
-	opId         string
 }
 
 // Registry keeps track of all imported accounts and marshals
@@ -96,15 +93,12 @@ func NewWallet(optFns ...walletOptFunc) *Wallet {
 		registry:         NewRegistry(opts.homeDir),
 		unlockedAccounts: map[string]MassaAccount{},
 		mu:               sync.RWMutex{},
-		sigReqCh:         make(chan signatureRequest, 10),
-		opReqCh:          make(chan serializeOperationRequest, 10),
 	}
 }
 
 // This function creates the wallet home directory if it is
-// not already present, creates a registry file that keeps
-// track of which accounts have been previously imported, and
-// starts the signing and operation serialization loops.
+// not already present and creates a registry file that keeps
+// track of which accounts have been previously imported.
 func (s *Wallet) Init() error {
 
 	// Ensure home and keystore dirs
@@ -126,43 +120,7 @@ func (s *Wallet) Init() error {
 		}
 	}
 
-	go s.startSigRequestLoop()
-	go s.startSerializeOperationRequestLoop()
-
 	return nil
-}
-
-func (s *Wallet) startSigRequestLoop() {
-	for req := range s.sigReqCh {
-		acc, err := s.getAccount(req.accountAddr)
-		if err != nil {
-			req.errCh <- fmt.Errorf("failed getting account for addr (%s): %w", req.accountAddr, err)
-			continue
-		}
-
-		req.resultCh <- acc.sign(req.payload)
-	}
-}
-
-func (s *Wallet) startSerializeOperationRequestLoop() {
-	for req := range s.opReqCh {
-		acc, err := s.getAccount(req.callerAddr)
-		if err != nil {
-			req.errCh <- fmt.Errorf("failed getting account for addr (%s): %w", req.callerAddr, err)
-			continue
-		}
-
-		serializedOp, opId, err := serializeOperation(acc, req.opData, req.expiryPeriod, req.chainId)
-		if err != nil {
-			req.errCh <- fmt.Errorf("failed serializing operation: %w", err)
-			continue
-		}
-
-		req.resultCh <- serializeOperationResult{
-			serializedOp: serializedOp,
-			opId:         opId,
-		}
-	}
 }
 
 // TODO: Unit tests...
@@ -291,6 +249,32 @@ func (s *Wallet) UnlockAccount(addr, password string) error {
 	return nil
 }
 
+func (w *Wallet) SignOperation(op Operation) (Operation, error) {
+	acc, err := w.getAccount(op.from)
+	if err != nil {
+		return Operation{}, fmt.Errorf("failed getting account: %w", err)
+	}
+
+	serializedPub, err := serializePub(acc.pub.Encoded)
+	if err != nil {
+		return Operation{}, fmt.Errorf("failed serializing public key: %w", err)
+	}
+
+	op.sig = acc.sign(getBytesToHash(op.chainId, serializedPub, op.content))
+	return op, nil
+}
+
+// Takes an arbitrary message and signs the blake3 digest
+// of it's utf-8 decoded bytes.
+func (w *Wallet) SignMessage(addr string, msg string) (MassaSignature, error) {
+	acc, err := w.getAccount(addr)
+	if err != nil {
+		return MassaSignature{}, fmt.Errorf("failed getting account: %w", err)
+	}
+	sig := acc.sign([]byte(msg))
+	return sig, err
+}
+
 func (w *Wallet) ListUnlockedAccounts() (addrs []string) {
 	for addr := range w.unlockedAccounts {
 		addrs = append(addrs, addr)
@@ -328,27 +312,6 @@ func (w *Wallet) ensureDirs() error {
 
 func (s *Wallet) persistAccount(acc MassaAccount, password string) (string, error) {
 	return persistAccount(acc, password, s.KeystoreDir())
-}
-
-func requestSignature(addr string, payload []byte, sigRequestCh chan signatureRequest) (MassaSignature, error) {
-	var (
-		resultCh = make(chan MassaSignature)
-		errCh    = make(chan error)
-	)
-
-	sigRequestCh <- signatureRequest{
-		accountAddr: addr,
-		payload:     payload,
-		resultCh:    resultCh,
-		errCh:       errCh,
-	}
-
-	select {
-	case massaSig := <-resultCh:
-		return massaSig, nil
-	case err := <-errCh:
-		return MassaSignature{}, err
-	}
 }
 
 func NewRegistry(homeDir string) *registry {
@@ -508,7 +471,7 @@ func (r *registry) getRegisteredAccount(addr string) (RegisteredAccount, error) 
 func defaultWalletHome() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf("could not get user home path: %s", err)
+		log.Fatalf("could not get user home dir: %s", err)
 	}
 
 	return filepath.Join(home, ".go-massa", "wallet")
